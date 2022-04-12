@@ -155,12 +155,9 @@ class Git:
 
     @property
     def tweak(self) -> int:
-        # When we are on the tag or have no tags, we still need to have tweak=1 to not
-        # break cmake with versions like 12.13.14.0
-        if not self.latest_tag:
-            return 1
-
         if not self.latest_tag.endswith("-testing"):
+            # When we are on the tag, we still need to have tweak=1 to not
+            # break cmake with versions like 12.13.14.0
             return self.commits_since_tag or 1
 
         version = self.latest_tag.split("-", maxsplit=1)[0]
