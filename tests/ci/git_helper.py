@@ -12,6 +12,7 @@ TAG_REGEXP = (
     r"\Av\d{2}[.][1-9]\d*[.][1-9]\d*[.][1-9]\d*-(testing|prestable|stable|lts)\Z"
 )
 SHA_REGEXP = r"\A([0-9]|[a-f]){40}\Z"
+CWD = p.dirname(p.realpath(__file__))
 
 
 # Py 3.8 removeprefix and removesuffix
@@ -46,8 +47,8 @@ def release_branch(name: str):
 class Runner:
     """lightweight check_output wrapper with stripping last NEW_LINE"""
 
-    def __init__(self, cwd: str = p.dirname(p.realpath(__file__))):
-        self.cwd = cwd
+    def __init__(self, cwd: str = CWD):
+        self._cwd = cwd
 
     def run(self, cmd: str, cwd: Optional[str] = None) -> str:
         if cwd is None:
@@ -56,17 +57,40 @@ class Runner:
             cmd, shell=True, cwd=cwd, encoding="utf-8"
         ).strip()
 
+    @property
+    def cwd(self) -> str:
+        return self._cwd
+
+    @cwd.setter
+    def cwd(self, value: str):
+        # Set _cwd only once, then set it to readonly
+        if self._cwd != CWD:
+            return
+        self._cwd = value
+
+
+git_runner = Runner()
+# Set cwd to abs path of git root
+git_runner.cwd = p.relpath(
+    p.join(git_runner.cwd, git_runner.run("git rev-parse --show-cdup"))
+)
+
+
+def get_tags() -> List[str]:
+    if git_runner.run("git rev-parse --is-shallow-repository") == "true":
+        raise RuntimeError("attempt to run on a shallow repository")
+    return git_runner.run("git tag").split()
+
 
 class Git:
     """A small wrapper around subprocess to invoke git commands"""
 
-    def __init__(self):
-        runner = Runner()
-        rel_root = runner.run("git rev-parse --show-cdup")
-        self.root = p.realpath(p.join(runner.cwd, rel_root))
-        self._tag_pattern = re.compile(TAG_REGEXP)
-        runner.cwd = self.root
-        self.run = runner.run
+    _tag_pattern = re.compile(TAG_REGEXP)
+
+    def __init__(self, ignore_no_tags: bool = False):
+        self.root = git_runner.cwd
+        self._ignore_no_tags = ignore_no_tags
+        self.run = git_runner.run
         self.new_branch = ""
         self.branch = ""
         self.sha = ""
@@ -82,6 +106,19 @@ class Git:
         self.sha_short = self.sha[:11]
         # The following command shows the most recent tag in a graph
         # Format should match TAG_REGEXP
+        if (
+            self._ignore_no_tags
+            and self.run("git rev-parse --is-shallow-repository") == "true"
+        ):
+            try:
+                self._update_tags()
+            except subprocess.CalledProcessError:
+                pass
+
+            return
+        self._update_tags()
+
+    def _update_tags(self):
         self.latest_tag = self.run("git describe --tags --abbrev=0")
         # Format should be: {latest_tag}-{commits_since_tag}-g{sha_short}
         self.description = self.run("git describe --tags --long")
@@ -89,10 +126,11 @@ class Git:
             self.run(f"git rev-list {self.latest_tag}..HEAD --count")
         )
 
-    def check_tag(self, value: str):
+    @staticmethod
+    def check_tag(value: str):
         if value == "":
             return
-        if not self._tag_pattern.match(value):
+        if not Git._tag_pattern.match(value):
             raise ValueError(f"last tag {value} doesn't match the pattern")
 
     @property
@@ -122,6 +160,3 @@ class Git:
 
         version = self.latest_tag.split("-", maxsplit=1)[0]
         return int(version.split(".")[-1]) + self.commits_since_tag
-
-    def get_tags(self) -> List[str]:
-        return self.run("git tag").split()
