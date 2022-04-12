@@ -95,7 +95,7 @@ class Git:
         self.branch = ""
         self.sha = ""
         self.sha_short = ""
-        self.description = ""
+        self.description = "shallow-checkout"
         self.commits_since_tag = 0
         self.update()
 

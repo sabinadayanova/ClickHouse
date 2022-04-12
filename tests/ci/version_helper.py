@@ -101,7 +101,7 @@ class ClickHouseVersion:
     def githash(self) -> str:
         if self._git is not None:
             return self._git.sha
-        return ""
+        return "0000000000000000000000000000000000000000"
 
     @property
     def describe(self):
