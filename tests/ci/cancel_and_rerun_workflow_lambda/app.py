@@ -95,23 +95,37 @@ WorkflowDescription = namedtuple(
 def get_workflows_description_for_pull_request(pull_request_event):
     head_repo = pull_request_event["head"]["repo"]["full_name"]
     head_branch = pull_request_event["head"]["ref"]
-    head_sha = pull_request_event["head"]["sha"]
     print("PR", pull_request_event["number"], "has head ref", head_branch)
+
     workflows_data = []
-    workflows = _exec_get_with_retry(
-        API_URL + f"/actions/runs?branch={head_branch}&event=pull_request&page=1"
-    )
-    workflows_data += workflows["workflow_runs"]
-    i = 2
-    while len(workflows["workflow_runs"]) > 0:
-        workflows = _exec_get_with_retry(
-            API_URL + f"/actions/runs?branch={head_branch}&event=pull_request&page={i}"
-        )
-        workflows_data += workflows["workflow_runs"]
-        i += 1
-        if i > 30:
-            print("Too many workflows found")
+    request_url = f"{API_URL}/actions/runs?event=pull_request"
+    # Get all workflows for the current branch
+    for i in range(1, 31):
+        workflows = _exec_get_with_retry(f"{request_url}&branch={head_branch}&page={i}")
+        if not workflows["workflow_runs"]:
             break
+        workflows_data += workflows["workflow_runs"]
+        if i == 30:
+            print("Too many workflows found")
+
+    if workflows_data:
+        print(
+            f"Total workflows for the branch {head_branch} found: {len(workflows_data)}"
+        )
+    else:
+        # Fallback for a case of an already deleted branch and no workflows received
+        i = 1
+        for status in ("queued", "in_progress"):
+            for i in range(1, 31):
+                workflows = _exec_get_with_retry(
+                    f"{request_url}&status={status}&page={i}"
+                )
+                if not workflows["workflow_runs"]:
+                    break
+                workflows_data += workflows["workflow_runs"]
+                if i == 30:
+                    print("Too many workflows found for a closed PR")
+        print(f"Total queued and in_progress workflows found: {len(workflows_data)}")
 
     DEBUG_INFO["workflows"] = []  # type: List[Dict[str, str]]
     workflow_descriptions = []
@@ -123,12 +137,13 @@ def get_workflows_description_for_pull_request(pull_request_event):
             {
                 "full_name": workflow["head_repository"]["full_name"],
                 "name": workflow["name"],
+                "branch": workflow["head_branch"],
             }
         )
         # unfortunately we cannot filter workflows from forks in request to API
         # so doing it manually
         if (
-            workflow["head_sha"] == head_sha
+            workflow["head_branch"] == head_branch  # for a fallback case
             and workflow["head_repository"]["full_name"] == head_repo
             and workflow["name"] in NEED_RERUN_OR_CANCELL_WORKFLOWS
         ):
