@@ -12,7 +12,9 @@ TAG_REGEXP = (
     r"\Av\d{2}[.][1-9]\d*[.][1-9]\d*[.][1-9]\d*-(testing|prestable|stable|lts)\Z"
 )
 SHA_REGEXP = r"\A([0-9]|[a-f]){40}\Z"
+
 CWD = p.dirname(p.realpath(__file__))
+TWEAK = 1
 
 
 # Py 3.8 removeprefix and removesuffix
@@ -158,7 +160,7 @@ class Git:
         if not self.latest_tag.endswith("-testing"):
             # When we are on the tag, we still need to have tweak=1 to not
             # break cmake with versions like 12.13.14.0
-            return self.commits_since_tag or 1
+            return self.commits_since_tag or TWEAK
 
         version = self.latest_tag.split("-", maxsplit=1)[0]
         return int(version.split(".")[-1]) + self.commits_since_tag
