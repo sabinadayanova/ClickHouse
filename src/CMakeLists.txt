@@ -519,6 +519,10 @@ if (TARGET ch_contrib::libpqxx)
     dbms_target_link_libraries(PUBLIC ch_contrib::libpqxx)
 endif()
 
+if (TARGET ch_contrib::madlib)
+    dbms_target_link_libraries(PUBLIC ch_contrib::madlib)
+endif()
+
 if (TARGET ch_contrib::datasketches)
     target_link_libraries (clickhouse_aggregate_functions PRIVATE ch_contrib::datasketches)
 endif ()
