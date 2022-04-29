@@ -208,7 +208,11 @@ BlockIO InterpreterSystemQuery::execute()
     auto & query = query_ptr->as<ASTSystemQuery &>();
 
     if (!query.cluster.empty())
-        return executeDDLQueryOnCluster(query_ptr, getContext(), getRequiredAccessForDDLOnCluster());
+    {
+        DDLQueryOnClusterParams params;
+        params.access_to_check = getRequiredAccessForDDLOnCluster();
+        return executeDDLQueryOnCluster(query_ptr, getContext(), params);
+    }
 
     using Type = ASTSystemQuery::Type;
 
@@ -306,12 +310,12 @@ BlockIO InterpreterSystemQuery::execute()
             {
                 auto caches = FileCacheFactory::instance().getAll();
                 for (const auto & [_, cache_data] : caches)
-                    cache_data.cache->tryRemoveAll();
+                    cache_data.cache->remove(query.force_removal);
             }
             else
             {
                 auto cache = FileCacheFactory::instance().get(query.filesystem_cache_path);
-                cache->tryRemoveAll();
+                cache->remove(query.force_removal);
             }
             break;
         }

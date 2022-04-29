@@ -48,6 +48,7 @@
 #include <Access/ExternalAuthenticators.h>
 #include <Access/GSSAcceptor.h>
 #include <Backups/BackupFactory.h>
+#include <Backups/BackupsWorker.h>
 #include <Dictionaries/Embedded/GeoDictionariesLoader.h>
 #include <Interpreters/EmbeddedDictionaries.h>
 #include <Interpreters/ExternalDictionariesLoader.h>
@@ -180,6 +181,7 @@ struct ContextSharedPart
     String user_files_path;                                 /// Path to the directory with user provided files, usable by 'file' table function.
     String dictionaries_lib_path;                           /// Path to the directory with user provided binaries and libraries for external dictionaries.
     String user_scripts_path;                               /// Path to the directory with user provided scripts.
+    String user_defined_path;                               /// Path to the directory with user defined objects.
     ConfigurationPtr config;                                /// Global configuration settings.
 
     String tmp_path;                                        /// Path to the temporary files that occur when processing the request.
@@ -351,6 +353,9 @@ struct ContextSharedPart
             external_models_loader->enablePeriodicUpdates(false);
 
         Session::shutdownNamedSessions();
+
+        /// Waiting for current backups/restores to be finished. This must be done before `DatabaseCatalog::shutdown()`.
+        BackupsWorker::instance().shutdown();
 
         /**  After system_logs have been shut down it is guaranteed that no system table gets created or written to.
           *  Note that part changes at shutdown won't be logged to part log.
@@ -582,6 +587,12 @@ String Context::getUserScriptsPath() const
     return shared->user_scripts_path;
 }
 
+String Context::getUserDefinedPath() const
+{
+    auto lock = getLock();
+    return shared->user_defined_path;
+}
+
 Strings Context::getWarnings() const
 {
     Strings common_warnings;
@@ -627,6 +638,9 @@ void Context::setPath(const String & path)
 
     if (shared->user_scripts_path.empty())
         shared->user_scripts_path = shared->path + "user_scripts/";
+
+    if (shared->user_defined_path.empty())
+        shared->user_defined_path = shared->path + "user_defined/";
 }
 
 VolumePtr Context::setTemporaryStorage(const String & path, const String & policy_name)
@@ -679,6 +693,12 @@ void Context::setUserScriptsPath(const String & path)
 {
     auto lock = getLock();
     shared->user_scripts_path = path;
+}
+
+void Context::setUserDefinedPath(const String & path)
+{
+    auto lock = getLock();
+    shared->user_defined_path = path;
 }
 
 void Context::addWarningMessage(const String & msg)

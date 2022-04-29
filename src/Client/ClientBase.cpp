@@ -765,21 +765,9 @@ void ClientBase::receiveResult(ASTPtr parsed_query)
             /// to avoid losing sync.
             if (!cancelled)
             {
-                auto cancel_query = [&] {
-                    connection->sendCancel();
-                    if (is_interactive)
-                    {
-                        progress_indication.clearProgressOutput();
-                        std::cout << "Cancelling query." << std::endl;
-
-                    }
-                    cancelled = true;
-                };
-
-                /// handler received sigint
                 if (QueryInterruptHandler::cancelled())
                 {
-                    cancel_query();
+                    cancelQuery();
                 }
                 else
                 {
@@ -790,7 +778,7 @@ void ClientBase::receiveResult(ASTPtr parsed_query)
                                     << " Waited for " << static_cast<size_t>(elapsed) << " seconds,"
                                     << " timeout is " << receive_timeout.totalSeconds() << " seconds." << std::endl;
 
-                        cancel_query();
+                        cancelQuery();
                     }
                 }
             }
@@ -1066,6 +1054,9 @@ void ClientBase::processInsertQuery(const String & query_to_execute, ASTPtr pars
             return;
     }
 
+    QueryInterruptHandler::start();
+    SCOPE_EXIT({ QueryInterruptHandler::stop(); });
+
     connection->sendQuery(
         connection_parameters.timeouts,
         query,
@@ -1234,6 +1225,7 @@ void ClientBase::sendDataFrom(ReadBuffer & buf, Block & sample, const ColumnsDes
 }
 
 void ClientBase::sendDataFromPipe(Pipe&& pipe, ASTPtr parsed_query, bool have_more_data)
+try
 {
     QueryPipeline pipeline(std::move(pipe));
     PullingAsyncPipelineExecutor executor(pipeline);
@@ -1241,6 +1233,13 @@ void ClientBase::sendDataFromPipe(Pipe&& pipe, ASTPtr parsed_query, bool have_mo
     Block block;
     while (executor.pull(block))
     {
+        if (!cancelled && QueryInterruptHandler::cancelled())
+        {
+            cancelQuery();
+            executor.cancel();
+            return;
+        }
+
         /// Check if server send Log packet
         receiveLogs(parsed_query);
 
@@ -1265,6 +1264,12 @@ void ClientBase::sendDataFromPipe(Pipe&& pipe, ASTPtr parsed_query, bool have_mo
 
     if (!have_more_data)
         connection->sendData({}, "", false);
+}
+catch (...)
+{
+    connection->sendCancel();
+    receiveEndOfQuery();
+    throw;
 }
 
 void ClientBase::sendDataFromStdin(Block & sample, const ColumnsDescription & columns_description, ASTPtr parsed_query)
@@ -1339,6 +1344,17 @@ bool ClientBase::receiveEndOfQuery()
     }
 }
 
+void ClientBase::cancelQuery()
+{
+    connection->sendCancel();
+    if (is_interactive)
+    {
+        progress_indication.clearProgressOutput();
+        std::cout << "Cancelling query." << std::endl;
+
+    }
+    cancelled = true;
+}
 
 void ClientBase::processParsedSingleQuery(const String & full_query, const String & query_to_execute,
         ASTPtr parsed_query, std::optional<bool> echo_query_, bool report_error)
@@ -1406,7 +1422,15 @@ void ClientBase::processParsedSingleQuery(const String & full_query, const Strin
             apply_query_settings(*with_output->settings_ast);
 
         if (!connection->checkConnected())
+        {
+            auto poco_logs_level = Poco::Logger::parseLevel(config().getString("send_logs_level", "none"));
+            /// Print under WARNING also because it is used by clickhouse-test.
+            if (poco_logs_level >= Poco::Message::PRIO_WARNING)
+            {
+                fmt::print(stderr, "Connection lost. Reconnecting.\n");
+            }
             connect();
+        }
 
         ASTPtr input_function;
         if (insert && insert->select)
