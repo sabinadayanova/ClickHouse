@@ -570,13 +570,16 @@ void LRUFileCache::remove(bool force_remove_unreleasable)
         auto & [key, offset] = *it++;
 
         auto * cell = getCell(key, offset, cache_lock);
+        if (!cell)
+            throw Exception(ErrorCodes::LOGICAL_ERROR, "Cache is in inconsistent state: LRU queue contains entries with no cache cell");
+
         if (cell->releasable() || force_remove_unreleasable)
         {
             auto file_segment = cell->file_segment;
             if (file_segment)
             {
                 std::lock_guard<std::mutex> segment_lock(file_segment->mutex);
-                file_segment->detached = true;
+                file_segment->detach(cache_lock, segment_lock);
                 remove(file_segment->key(), file_segment->offset(), cache_lock, segment_lock);
             }
         }

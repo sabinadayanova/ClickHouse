@@ -14,11 +14,11 @@
 #include <Poco/Net/NetException.h>
 #include <Poco/Util/HelpFormatter.h>
 #include <Poco/Environment.h>
-#include <base/scope_guard_safe.h>
+#include <Common/scope_guard_safe.h>
 #include <base/defines.h>
-#include <base/logger_useful.h>
+#include <Common/logger_useful.h>
 #include <base/phdr_cache.h>
-#include <base/ErrorHandlers.h>
+#include <Common/ErrorHandlers.h>
 #include <base/getMemoryAmount.h>
 #include <base/getAvailableMemoryAmount.h>
 #include <base/errnoToString.h>
@@ -590,12 +590,13 @@ static void sanityChecks(Server * server)
             server->context()->addWarningMessage("Available memory at server startup is too low (2GiB).");
 
         if (!enoughSpaceInDirectory(data_path, 1ull << 30))
-            server->context()->addWarningMessage("Available disk space at server startup is too low (1GiB).");
+            server->context()->addWarningMessage("Available disk space for data at server startup is too low (1GiB): " + String(data_path));
 
         if (!logs_path.empty())
         {
-            if (!enoughSpaceInDirectory(fs::path(logs_path).parent_path(), 1ull << 30))
-                server->context()->addWarningMessage("Available disk space at server startup is too low (1GiB).");
+            auto logs_parent = fs::path(logs_path).parent_path();
+            if (!enoughSpaceInDirectory(logs_parent, 1ull << 30))
+                server->context()->addWarningMessage("Available disk space for logs at server startup is too low (1GiB): " + String(logs_parent));
         }
     }
     catch (...)
@@ -1123,6 +1124,59 @@ int Server::main(const std::vector<std::string> & /*args*/)
 
             if (config->has("keeper_server"))
                 global_context->updateKeeperConfiguration(*config);
+
+            /// Reload the number of threads for global pools.
+            /// Note: If you specified it in the top level config (not it config of default profile)
+            /// then ClickHouse will use it exactly.
+            /// This is done for backward compatibility.
+            if (global_context->areBackgroundExecutorsInitialized() && (config->has("background_pool_size") || config->has("background_merges_mutations_concurrency_ratio")))
+            {
+                auto new_pool_size = config->getUInt64("background_pool_size", 16);
+                auto new_ratio = config->getUInt64("background_merges_mutations_concurrency_ratio", 2);
+                global_context->getMergeMutateExecutor()->increaseThreadsAndMaxTasksCount(new_pool_size, new_pool_size * new_ratio);
+            }
+
+            if (global_context->areBackgroundExecutorsInitialized() && config->has("background_move_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_move_pool_size");
+                global_context->getMovesExecutor()->increaseThreadsAndMaxTasksCount(new_pool_size, new_pool_size);
+            }
+
+            if (global_context->areBackgroundExecutorsInitialized() && config->has("background_fetches_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_fetches_pool_size");
+                global_context->getFetchesExecutor()->increaseThreadsAndMaxTasksCount(new_pool_size, new_pool_size);
+            }
+
+            if (global_context->areBackgroundExecutorsInitialized() && config->has("background_common_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_common_pool_size");
+                global_context->getCommonExecutor()->increaseThreadsAndMaxTasksCount(new_pool_size, new_pool_size);
+            }
+
+            if (config->has("background_buffer_flush_schedule_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_buffer_flush_schedule_pool_size");
+                global_context->getBufferFlushSchedulePool().increaseThreadsCount(new_pool_size);
+            }
+
+            if (config->has("background_schedule_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_schedule_pool_size");
+                global_context->getSchedulePool().increaseThreadsCount(new_pool_size);
+            }
+
+            if (config->has("background_message_broker_schedule_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_message_broker_schedule_pool_size");
+                global_context->getMessageBrokerSchedulePool().increaseThreadsCount(new_pool_size);
+            }
+
+            if (config->has("background_distributed_schedule_pool_size"))
+            {
+                auto new_pool_size = config->getUInt64("background_distributed_schedule_pool_size");
+                global_context->getDistributedSchedulePool().increaseThreadsCount(new_pool_size);
+            }
 
             if (!initial_loading)
             {
