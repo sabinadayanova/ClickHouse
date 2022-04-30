@@ -262,3 +262,9 @@
 [submodule "contrib/minizip-ng"]
 	path = contrib/minizip-ng
 	url = https://github.com/zlib-ng/minizip-ng
+[submodule "contrib/mlpack"]
+	path = contrib/mlpack
+	url = https://github.com/mlpack/mlpack.git
+[submodule "contrib/armadillo-code"]
+	path = contrib/armadillo-code
+	url = https://gitlab.com/conradsnicta/armadillo-code.git

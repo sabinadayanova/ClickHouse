@@ -550,6 +550,14 @@ if (TARGET ch_contrib::rapidjson)
     dbms_target_link_libraries(PRIVATE ch_contrib::rapidjson)
 endif()
 
+if (TARGET ch_contrib::mlpack)
+    dbms_target_link_libraries(PUBLIC ch_contrib::mlpack)
+endif()
+
+if (TARGET ch_contrib::armadillo-code)
+    dbms_target_link_libraries(PUBLIC ch_contrib::armadillo-code)
+endif()
+
 dbms_target_link_libraries(PUBLIC ch_contrib::consistent_hashing)
 
 include ("${ClickHouse_SOURCE_DIR}/cmake/add_check.cmake")
