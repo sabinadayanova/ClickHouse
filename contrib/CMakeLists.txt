@@ -141,6 +141,8 @@ add_contrib (fast_float-cmake fast_float)
 add_contrib (datasketches-cpp-cmake datasketches-cpp)
 add_contrib (mlpack-cmake mlpack)
 add_contrib (armadillo-code-cmake armadillo-code)
+add_contrib (ensmallen-cmake ensmallen)
+add_contrib (cereal-cmake cereal)
 
 option(ENABLE_NLP "Enable NLP functions support" ${ENABLE_LIBRARIES})
 if (ENABLE_NLP)

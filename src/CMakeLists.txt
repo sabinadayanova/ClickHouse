@@ -561,6 +561,14 @@ if (TARGET ch_contrib::armadillo-code)
     dbms_target_link_libraries(PUBLIC ch_contrib::armadillo-code)
 endif()
 
+if (TARGET ch_contrib::ensmallen)
+    dbms_target_link_libraries(PUBLIC ch_contrib::ensmallen)
+endif()
+
+if (TARGET ch_contrib::cereal)
+    dbms_target_link_libraries(PUBLIC ch_contrib::cereal)
+endif()
+
 dbms_target_link_libraries(PUBLIC ch_contrib::consistent_hashing)
 
 include ("${ClickHouse_SOURCE_DIR}/cmake/add_check.cmake")

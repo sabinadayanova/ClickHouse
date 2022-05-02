@@ -268,3 +268,9 @@
 [submodule "contrib/armadillo-code"]
 	path = contrib/armadillo-code
 	url = https://gitlab.com/conradsnicta/armadillo-code.git
+[submodule "contrib/ensmallen"]
+	path = contrib/ensmallen
+	url = https://github.com/mlpack/ensmallen.git
+[submodule "contrib/cereal"]
+	path = contrib/cereal
+	url = https://github.com/USCiLab/cereal.git
