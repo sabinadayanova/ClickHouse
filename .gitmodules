@@ -274,3 +274,9 @@
 [submodule "contrib/cereal"]
 	path = contrib/cereal
 	url = https://github.com/USCiLab/cereal.git
+[submodule "contrib/OpenBLAS"]
+	path = contrib/OpenBLAS
+	url = https://github.com/xianyi/OpenBLAS.git
+[submodule "contrib/lapack"]
+	path = contrib/lapack
+	url = https://github.com/Reference-LAPACK/lapack.git
