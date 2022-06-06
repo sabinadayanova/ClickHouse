@@ -87,6 +87,7 @@ add_headers_and_sources(clickhouse_common_io IO/S3)
 list (REMOVE_ITEM clickhouse_common_io_sources Common/malloc.cpp Common/new_delete.cpp)
 
 add_headers_and_sources(dbms Disks/IO)
+add_headers_and_sources(dbms Storages/MLpack)
 add_headers_and_sources(dbms Disks/ObjectStorages)
 if (TARGET ch_contrib::sqlite)
     add_headers_and_sources(dbms Databases/SQLite)
@@ -307,6 +308,25 @@ macro (dbms_target_link_libraries)
         target_link_libraries (${module} ${ARGN})
     endforeach ()
 endmacro ()
+
+include (../cmake/find/FindMLPACK.cmake)
+find_package(MLPACK REQUIRED)
+# include_directories(${MLPACK_INCLUDE_DIRS})
+# target_link_libraries(clickhouse_interpreters PUBLIC ${MLPACK_LIBRARIES})
+
+find_package(Armadillo REQUIRED)
+
+dbms_target_link_libraries(PUBLIC ${MLPACK_LIBRARIES}  ${ARMADILLO_LIBRARIES})
+target_link_libraries (clickhouse_common_io PUBLIC ${MLPACK_LIBRARIES} ${ARMADILLO_LIBRARIES})
+dbms_target_include_directories(PUBLIC ${MLPACK_INCLUDE_DIRS} ${ARMADILLO_INCLUDE_DIRS})
+
+target_link_libraries(${MLPACK_LIBRARIES} INTERFACE ${ARMADILLO_LIBRARIES})
+
+target_link_libraries(clickhouse_common_io PUBLIC _boost_serialization)
+# dbms_target_include_directories(PUBLIC _boost_serialization)
+# if (TARGET ${MLPACK_LIBRARIES})
+#     add_headers_and_sources(dbms Storages/MLpack)
+# endif()
 
 dbms_target_include_directories (PUBLIC "${ClickHouse_SOURCE_DIR}/src" "${ClickHouse_BINARY_DIR}/src")
 target_include_directories (clickhouse_common_io PUBLIC "${ClickHouse_SOURCE_DIR}/src" "${ClickHouse_BINARY_DIR}/src")

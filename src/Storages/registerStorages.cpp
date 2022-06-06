@@ -27,6 +27,9 @@ void registerStorageLiveView(StorageFactory & factory);
 void registerStorageGenerateRandom(StorageFactory & factory);
 void registerStorageExecutable(StorageFactory & factory);
 void registerStorageWindowView(StorageFactory & factory);
+void registerStorageLinReg(StorageFactory & factory);
+void registerStorageLogReg(StorageFactory & factory);
+void registerStorageLinearSVM(StorageFactory & factory);
 
 // MEILISEARCH
 void registerStorageMeiliSearch(StorageFactory& factory);
@@ -107,6 +110,9 @@ void registerStorages()
     registerStorageGenerateRandom(factory);
     registerStorageExecutable(factory);
     registerStorageWindowView(factory);
+    registerStorageLinReg(factory);
+    registerStorageLogReg(factory);
+    registerStorageLinearSVM(factory);
 
     // MEILISEARCH
     registerStorageMeiliSearch(factory);

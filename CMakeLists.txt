@@ -415,6 +415,7 @@ elseif (OS_FREEBSD)
 endif ()
 link_libraries(global-group)
 
+set (WERROR OFF)
 if (NOT (OS_LINUX OR OS_DARWIN))
     # Using system libs can cause a lot of warnings in includes (on macro expansion).
     option(WERROR "Enable -Werror compiler option" OFF)
